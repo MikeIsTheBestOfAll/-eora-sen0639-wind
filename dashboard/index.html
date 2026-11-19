@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>风速遥测监测平台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>风速遥测监测平台</h1>
+          <p>SEN0639 与 EoRa LoRa 地面站</p>
+        </div>
+      </div>
+      <div class="header-status" aria-label="通信状态">
+        <span id="loraChip" class="chip chip-muted"><span class="status-dot"></span>LoRa 等待数据</span>
+        <span class="chip">节点 <strong id="nodeChip">--</strong></span>
+        <span class="chip">最后更新 <strong id="lastUpdateChip">--:--:--</strong></span>
+        <span class="chip">接收周期 <strong id="periodChip">--</strong></span>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="controlbar" aria-label="串口和数据控制">
+        <div class="control-copy">
+          <strong id="serialState">地面接收端未连接</strong>
+          <span id="serialHint">请先关闭 PlatformIO 串口监视器，再连接接收板。</span>
+        </div>
+        <div class="control-actions">
+          <button id="connectButton" class="button button-primary" type="button">连接地面接收端</button>
+          <button id="disconnectButton" class="button" type="button" disabled>断开</button>
+          <button id="demoButton" class="button" type="button">模拟演示</button>
+          <button id="exportButton" class="button" type="button" disabled>导出 CSV</button>
+          <button id="clearButton" class="button button-quiet" type="button">清空</button>
+          <button id="helpButton" class="button button-quiet" type="button" aria-label="打开使用说明">使用说明</button>
+        </div>
+      </section>
+
+      <p id="messageBar" class="message-bar" role="status" aria-live="polite" hidden></p>
+
+      <section class="dashboard-grid">
+        <article class="card gauge-card">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">CURRENT WIND</span>
+              <h2>实时风速</h2>
+            </div>
+            <span id="dataQualityBadge" class="badge badge-muted">等待数据</span>
+          </div>
+          <div class="gauge-wrap">
+            <svg class="gauge" viewBox="0 0 320 190" role="img" aria-label="实时风速仪表盘，量程0到15米每秒">
+              <path class="gauge-track" pathLength="100" d="M 35 155 A 125 125 0 0 1 285 155" />
+              <path id="gaugeValue" class="gauge-value" pathLength="100" d="M 35 155 A 125 125 0 0 1 285 155" />
+              <g class="gauge-labels" aria-hidden="true">
+                <text x="25" y="177">0</text>
+                <text x="67" y="91">3</text>
+                <text x="126" y="49">6</text>
+                <text x="193" y="49">9</text>
+                <text x="251" y="91">12</text>
+                <text x="288" y="177">15</text>
+              </g>
+            </svg>
+            <div class="gauge-reading">
+              <strong id="windValue">--</strong>
+              <span>m/s</span>
+            </div>
+          </div>
+          <div class="range-label">量程 0–15 m/s</div>
+        </article>
+
+        <article class="card chart-card">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">TREND</span>
+              <h2>风速趋势</h2>
+            </div>
+            <div class="chart-legend"><span></span>最近10分钟</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="trendCanvas" aria-label="最近10分钟风速趋势图"></canvas>
+            <div id="chartEmpty" class="chart-empty">接收第一包数据后显示趋势</div>
+          </div>
+        </article>
+
+        <article class="card status-card">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">DEVICE AND LINK</span>
+              <h2>设备与链路状态</h2>
+            </div>
+          </div>
+          <dl class="status-list">
+            <div><dt>状态</dt><dd><span id="statusValue" class="badge badge-muted">等待数据</span></dd></div>
+            <div><dt>电池电压</dt><dd id="batteryValue">-- V</dd></div>
+            <div><dt>RSSI</dt><dd id="rssiValue">-- dBm</dd></div>
+            <div><dt>SNR</dt><dd id="snrValue">-- dB</dd></div>
+            <div><dt>原始值</dt><dd id="rawValue">--</dd></div>
+            <div><dt>包序号</dt><dd id="sequenceValue">#--</dd></div>
+            <div><dt>累计漏包</dt><dd id="lostPacketsValue">0</dd></div>
+          </dl>
+          <p id="statusDetails" class="status-details">尚未收到风速数据。</p>
+        </article>
+
+        <section class="stats-grid" aria-label="本周期统计数据">
+          <article class="stat-card">
+            <span>最小风速</span>
+            <strong id="minimumValue">--</strong>
+            <small>m/s</small>
+          </article>
+          <article class="stat-card">
+            <span>最大风速</span>
+            <strong id="maximumValue">--</strong>
+            <small>m/s</small>
+          </article>
+          <article class="stat-card">
+            <span>标准差</span>
+            <strong id="standardDeviationValue">--</strong>
+            <small>m/s</small>
+          </article>
+          <article class="stat-card">
+            <span>有效样本</span>
+            <strong id="sampleCountValue">--</strong>
+            <small>个</small>
+          </article>
+        </section>
+
+        <article class="card table-card">
+          <div class="card-heading table-heading">
+            <div>
+              <span class="eyebrow">RECENT PACKETS</span>
+              <h2>最近接收数据</h2>
+            </div>
+            <span id="recordCount">0 条记录</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>节点</th>
+                  <th>序号</th>
+                  <th>平均风速</th>
+                  <th>最小值</th>
+                  <th>最大值</th>
+                  <th>标准差</th>
+                  <th>样本数</th>
+                  <th>RSSI</th>
+                  <th>SNR</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr class="empty-row"><td colspan="11">暂无数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <dialog id="helpDialog">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">QUICK START</span>
+          <h2>连接和使用方法</h2>
+        </div>
+        <button id="closeHelpButton" class="icon-button" type="button" aria-label="关闭">×</button>
+      </div>
+      <ol>
+        <li>给地面接收板烧录 <code>wind_rx</code>，接好410–493 MHz天线，再用USB数据线连接电脑。</li>
+        <li>关闭PlatformIO的串口监视器。一个COM口同一时间只能由一个程序占用。</li>
+        <li>点击“连接地面接收端”，在浏览器窗口中选择对应的EoRa开发板串口。</li>
+        <li>打开空中发送端电源。收到 <code>WV1</code> 数据包后，页面会自动更新。</li>
+        <li>首次未接实物时，可以点击“模拟演示”检查页面。</li>
+      </ol>
+      <p class="dialog-note">串口波特率固定为115200。请使用此启动程序打开的Microsoft Edge或Google Chrome。</p>
+    </dialog>
+
+    <script src="protocol.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
